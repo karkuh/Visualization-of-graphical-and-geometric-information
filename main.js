@@ -102,14 +102,14 @@ function CreateVirichSurfaceLines(a, b, c, d, uSteps, vSteps, uMax, vMax) {
 
     let grid = new Array((uSteps + 1) * (vSteps + 1));
     for (let i = 0; i <= uSteps; i++) {
-        let t = uMax *i/uSteps;
+        let u = uMax *i/uSteps;
         for (let j = 0; j <= vSteps; j++) {
             let v = vMax * j / vSteps;
             let fv = f_of_v(v);
-            let common = 0.5*(fv*(1+Math.cos(t)) + (d*d-c*c)*(1-Math.cos(t))/fv);
+            let common = 0.5*(fv*(1+Math.cos(u)) + (d*d-c*c)*(1-Math.cos(u))/fv);
             let x = common * Math.cos(v);
             let y = common * Math.sin(v);
-            let z = 0.5*(fv - (d*d-c*c)/fv) * Math.sin(t);
+            let z = 0.5*(fv - (d*d-c*c)/fv) * Math.sin(u);
             grid[i*(vSteps+1)+j] = [x,y,z];
         }
     }
