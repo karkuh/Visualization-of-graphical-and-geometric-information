@@ -92,7 +92,7 @@ function draw() {
 }
 
 
-function CreateVirichSurfaceLines(a, b, c, d, tSteps, vSteps, tMax, vMax) {
+function CreateVirichSurfaceLines(a, b, c, d, uSteps, vSteps, uMax, vMax) {
     let verts = [];
     function f_of_v(v) {
         let s = Math.sin(v), co = Math.cos(v);
@@ -100,9 +100,9 @@ function CreateVirichSurfaceLines(a, b, c, d, tSteps, vSteps, tMax, vMax) {
     }
     
 
-    let grid = new Array((tSteps + 1) * (vSteps + 1));
-    for (let i = 0; i <= tSteps; i++) {
-        let t = tMax *i/tSteps;
+    let grid = new Array((uSteps + 1) * (vSteps + 1));
+    for (let i = 0; i <= uSteps; i++) {
+        let t = uMax *i/uSteps;
         for (let j = 0; j <= vSteps; j++) {
             let v = vMax * j / vSteps;
             let fv = f_of_v(v);
@@ -114,10 +114,10 @@ function CreateVirichSurfaceLines(a, b, c, d, tSteps, vSteps, tMax, vMax) {
         }
     }
 
-    for (let i = 0; i <= tSteps; i++) {
+    for (let i = 0; i <= uSteps; i++) {
         for (let j = 0; j <= vSteps; j++) {
             let idx = i*(vSteps+1)+j;
-            if (i < tSteps) {
+            if (i < uSteps) {
                 let p0 = grid[idx], p1 = grid[(i+1)*(vSteps+1)+j];
                 verts.push(p0[0],p0[1],p0[2]);
                 verts.push(p1[0],p1[1],p1[2]);
@@ -148,17 +148,17 @@ function initGL() {
     let b = parseFloat(document.getElementById("paramB").value);
     let c = parseFloat(document.getElementById("paramC").value);
     let d = parseFloat(document.getElementById("paramD").value);
-    let tSteps = parseInt(document.getElementById("paramT").value);
+    let uSteps = parseInt(document.getElementById("paramT").value);
     let vSteps = parseInt(document.getElementById("paramV").value);
 
 
-    let tRange = document.querySelector('input[name="tRange"]:checked').value;
+    let uRange = document.querySelector('input[name="uRange"]:checked').value;
     let vRange = document.querySelector('input[name="vRange"]:checked').value;
 
-    let tMax = (tRange === "pi") ? Math.PI : 2*Math.PI;
+    let uMax = (uRange === "pi") ? Math.PI : 2*Math.PI;
     let vMax = (vRange === "pi") ? Math.PI : 2*Math.PI;
 
-    let verts = CreateVirichSurfaceLines(a,b,c,d,tSteps,vSteps,tMax,vMax);
+    let verts = CreateVirichSurfaceLines(a,b,c,d,uSteps,vSteps,uMax,vMax);
     surface.BufferData(verts);
 
 
@@ -209,19 +209,19 @@ function updateSurface() {
     let b = parseFloat(document.getElementById("paramB").value);
     let c = parseFloat(document.getElementById("paramC").value);
     let d = parseFloat(document.getElementById("paramD").value);
-    let tSteps = parseInt(document.getElementById("paramT").value);
+    let uSteps = parseInt(document.getElementById("paramT").value);
     let vSteps = parseInt(document.getElementById("paramV").value);
 
-    tSteps = Math.max(4, Math.min(200,tSteps));
+    uSteps = Math.max(4, Math.min(200,uSteps));
     vSteps = Math.max(4, Math.min(400,vSteps));
 
-    let tRange = document.querySelector('input[name="tRange"]:checked').value;
+    let uRange = document.querySelector('input[name="uRange"]:checked').value;
     let vRange = document.querySelector('input[name="vRange"]:checked').value;
 
-    let tMax = (tRange === "pi") ? Math.PI : 2*Math.PI;
+    let uMax = (uRange === "pi") ? Math.PI : 2*Math.PI;
     let vMax = (vRange === "pi") ? Math.PI : 2*Math.PI;
 
-    let verts = CreateVirichSurfaceLines(a,b,c,d,tSteps,vSteps,tMax,vMax);
+    let verts = CreateVirichSurfaceLines(a,b,c,d,uSteps,vSteps,uMax,vMax);
     surface.BufferData(verts);
     draw();
 }
