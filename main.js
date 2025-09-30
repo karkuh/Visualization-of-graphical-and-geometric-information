@@ -148,7 +148,7 @@ function initGL() {
     let b = parseFloat(document.getElementById("paramB").value);
     let c = parseFloat(document.getElementById("paramC").value);
     let d = parseFloat(document.getElementById("paramD").value);
-    let uSteps = parseInt(document.getElementById("paramT").value);
+    let uSteps = parseInt(document.getElementById("paramU").value);
     let vSteps = parseInt(document.getElementById("paramV").value);
 
 
@@ -209,7 +209,7 @@ function updateSurface() {
     let b = parseFloat(document.getElementById("paramB").value);
     let c = parseFloat(document.getElementById("paramC").value);
     let d = parseFloat(document.getElementById("paramD").value);
-    let uSteps = parseInt(document.getElementById("paramT").value);
+    let uSteps = parseInt(document.getElementById("paramU").value);
     let vSteps = parseInt(document.getElementById("paramV").value);
 
     uSteps = Math.max(4, Math.min(200,uSteps));
