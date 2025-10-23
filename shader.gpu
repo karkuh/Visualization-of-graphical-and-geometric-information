@@ -1,24 +1,70 @@
-
-
 // Vertex shader
 const vertexShaderSource = `
 attribute vec3 vertex;
-uniform mat4 ModelViewProjectionMatrix;
+attribute vec3 normal;
+
+uniform mat4 ModelMatrix;
+uniform mat4 ViewMatrix;
+uniform mat4 ProjectionMatrix;
+uniform mat3 NormalMatrix;
+
+uniform vec3 uLightPosition;
+uniform vec3 uViewPosition;
+uniform vec3 uAmbientColor;
+uniform vec3 uDiffuseColor;
+uniform vec3 uSpecularColor;
+uniform float uShininess;
+
+varying vec3 vColor; 
+
+uniform mat4 ModelViewProjectionMatrix; 
 
 void main() {
-    gl_Position = ModelViewProjectionMatrix * vec4(vertex,1.0);
+    vec4 worldPos = ModelMatrix * vec4(vertex, 1.0);
+    vec3 vPosition = worldPos.xyz; 
+    vec3 N = normalize(NormalMatrix * normal); 
+
+    vec3 L = normalize(uLightPosition - vPosition);
+    vec3 V = normalize(uViewPosition - vPosition);
+    vec3 R = reflect(-L, N);
+
+    // Ambient
+    vec3 ambient = uAmbientColor;
+
+    // Diffuse
+    float diff = max(dot(N, L), 0.0);
+    vec3 diffuse = uDiffuseColor * diff;
+
+    // Specular
+    float spec = 0.0;
+    if (diff > 0.0) {
+        spec = pow(max(dot(V, R), 0.0), uShininess);
+    }
+    vec3 specular = uSpecularColor * spec;
+
+    vec3 color = ambient + diffuse + specular;
+    
+    vColor = color;
+
+    gl_Position = ProjectionMatrix * ViewMatrix * worldPos;
 }`;
 
-
-// Fragment shader
+// Fragment shader 
 const fragmentShaderSource = `
 #ifdef GL_FRAGMENT_PRECISION_HIGH
-   precision highp float;
+    precision highp float;
 #else
-   precision mediump float;
+    precision mediump float;
 #endif
 
-uniform vec4 color;
+varying vec3 vColor; 
+
+uniform bool uIsLight; 
+
 void main() {
-    gl_FragColor = color;
+    if (uIsLight) {
+        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+    } else {
+        gl_FragColor = vec4(vColor, 1.0);
+    }
 }`;

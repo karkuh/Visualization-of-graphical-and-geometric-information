@@ -97,8 +97,8 @@
     <label>b: <input id="paramB" type="number" value="3" step="0.1"></label>
     <label>c: <input id="paramC" type="number" value="2" step="0.1"></label>
     <label>d: <input id="paramD" type="number" value="4" step="0.1"></label>
-    <label>uSteps: <input id="paramU" type="number" value="40" step="1" min="4"></label>
-    <label>vSteps: <input id="paramV" type="number" value="60" step="1" min="4"></label>
+    <label>uSteps: <input id="paramU" type="number" value="20" step="1" min="4"></label>
+    <label>vSteps: <input id="paramV" type="number" value="20" step="1" min="4"></label>
 
     <div class="control-group">
         <button onclick="updateSurface()">Update surface</button>
@@ -112,22 +112,17 @@
     </div>
 
     <div class="control-group">
-    <span>U range:</span>
-    <label><input type="radio" name="uRange" value="pi" onchange="updateSurface()"> 0..π</label>
-    <label><input type="radio" name="uRange" value="2pi" checked onchange="updateSurface()"> 0..2π</label>
+        <span>Light mode:</span>
+        <label>
+            <input type="radio" name="lightMode" value="static" checked onchange="draw()">
+            Static (object rotates)
+        </label>
+        <label>
+            <input type="radio" name="lightMode" value="dynamic" onchange="draw()">
+            Dynamic (camera rotates)
+        </label>
     </div>
 
-    <div class="control-group">
-    <span>V range:</span>
-    <label><input type="radio" name="vRange" value="pi"  onchange="updateSurface()"> 0..π</label>
-    <label><input type="radio" name="vRange" value="2pi" checked onchange="updateSurface()"> 0..2π</label>
-    </div>  
-
-
-
-    <div class="control-group">
-        <label>Color: <input type="color" id="colorPicker" value="#e67333" onchange="draw()"></label>
-    </div>
 </div>
 
 <div id="canvas-container">
