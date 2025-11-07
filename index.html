@@ -107,23 +107,42 @@
 
     <div class="control-group">
         <span>Render mode:</span>
-        <label><input type="radio" name="renderMode" value="lines" checked onchange="draw()"> Lines</label>
-        <label><input type="radio" name="renderMode" value="triangles" onchange="draw()"> Triangles</label>
+        <label><input type="radio" name="renderMode" value="lines" checked onchange="updateRenderSettings()"> Lines</label>
+        <label><input type="radio" name="renderMode" value="triangles" onchange="updateRenderSettings()"> Triangles</label>
     </div>
 
     <div class="control-group">
         <span>Light mode:</span>
         <label>
-            <input type="radio" name="lightMode" value="static" checked onchange="draw()">
+            <input type="radio" name="lightMode" value="static" checked onchange="updateRenderSettings()">
             Static (object rotates)
         </label>
         <label>
-            <input type="radio" name="lightMode" value="dynamic" onchange="draw()">
+            <input type="radio" name="lightMode" value="dynamic" onchange="updateRenderSettings()">
             Dynamic (camera rotates)
         </label>
     </div>
 
+    <div class="control-group">
+         <span>Texture maps:</span>
+        <label>
+            <input type="checkbox" id="useDiffuseMap" checked onchange="updateRenderSettings()">
+            Use Diffuse Map (Color)
+        </label>
+        <label>
+            <input type="checkbox" id="useSpecularMap" checked onchange="updateRenderSettings()">
+            Use Specular Map
+        </label>
+        <label>
+            <input type="checkbox" id="useNormalMap" checked onchange="updateRenderSettings()">
+            Use Normal Map
+        </label>
+    </div>
+
 </div>
+</div>
+
+
 
 <div id="canvas-container">
     <canvas id="webglcanvas"></canvas>
