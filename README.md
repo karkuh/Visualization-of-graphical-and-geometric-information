@@ -1,4 +1,4 @@
 # Visualization-of-graphical-and-geometric-information
-Practical assignment #3
+Calculation and graphics work
 
 [View website](https://karkuh.github.io/Visualization-of-graphical-and-geometric-information/)
