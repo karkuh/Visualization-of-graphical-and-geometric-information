@@ -7,7 +7,14 @@ let spaceball;
 let canvasGlobal;
 let zoom = -20;
 let lightSphere;
+let pivotPointModel; 
+
+let axisXModel, axisYModel, axisZModel; 
 let textures = {};
+
+let pivotU = 0;
+let pivotV = 0;
+let geometryRotationAngle = 0;
 
 let projectionMatrix = m4.identity();
 let modelMatrix = m4.identity();
@@ -27,10 +34,9 @@ let renderSettings = {
     renderMode: "lines",
     useDiffuse: true,
     useSpecular: true,
-    useNormal: true
+    useNormal: true,
+    enableLighting: true
 };
-
-
 
 function Model(name) {
     this.name = name;
@@ -127,20 +133,12 @@ function generateLineIndices(uSteps, vSteps) {
     for (let i = 0; i <= uSteps; i++) {
         for (let j = 0; j <= vSteps; j++) {
             let idx = i * (vSteps + 1) + j;
-            
-            if (j < vSteps) {
-                let idxNextV = i * (vSteps + 1) + (j + 1);
-                indices.push(idx, idxNextV);
-            }
-            if (i < uSteps) {
-                let idxNextU = (i + 1) * (vSteps + 1) + j;
-                indices.push(idx, idxNextU);
-            }
+            if (j < vSteps) indices.push(idx, i * (vSteps + 1) + (j + 1));
+            if (i < uSteps) indices.push(idx, (i + 1) * (vSteps + 1) + j);
         }
     }
     return indices;
 }
-
 
 function ShaderProgram(name, program) {
     this.name = name;
@@ -164,6 +162,8 @@ function ShaderProgram(name, program) {
     this.uSpecularColor = -1;
     this.uShininess = -1;
     this.uIsLight = -1;
+    this.uEnableLighting = -1;
+    this.uColor = -1; 
 
     this.uDiffuseMap = -1;
     this.uSpecularMap = -1;
@@ -188,24 +188,29 @@ function resizeCanvasToDisplaySize(canvas) {
     }
     return false;
 }
-function inverse3(m) {
-    const a00 = m[0], a01 = m[1], a02 = m[2];
-    const a10 = m[3], a11 = m[4], a12 = m[5];
-    const a20 = m[6], a21 = m[7], a22 = m[8];
-    const det = a00*(a11*a22 - a12*a21) - a01*(a10*a22 - a12*a20) + a02*(a10*a21 - a11*a20);
-    if (det === 0) return null;
-    const invDet = 1.0 / det;
-    const inv = [
-        (a11*a22 - a12*a21) * invDet, (a02*a21 - a01*a22) * invDet, (a01*a12 - a02*a11) * invDet,
-        (a12*a20 - a10*a22) * invDet, (a00*a22 - a02*a20) * invDet, (a02*a10 - a00*a12) * invDet,
-        (a10*a21 - a11*a20) * invDet, (a01*a20 - a00*a21) * invDet, (a00*a11 - a01*a10) * invDet
-    ];
-    return [ inv[0], inv[3], inv[6], inv[1], inv[4], inv[7], inv[2], inv[5], inv[8] ];
-}
-function transpose3(m) { 
-    return [ m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8] ];
-}
 
+function handlePivotKeys(event) {
+    const uMax = 2 * Math.PI; 
+    const vMax = 2 * Math.PI;
+    const step = 0.1;
+
+    switch(event.key.toLowerCase()) {
+        case 'a': pivotU -= step; break;
+        case 'd': pivotU += step; break;
+        case 's': pivotV -= step; break;
+        case 'w': pivotV += step; break;
+    }
+
+    if (pivotU < 0) pivotU += uMax;
+    if (pivotU > uMax) pivotU -= uMax;
+    if (pivotV < 0) pivotV += vMax;
+    if (pivotV > vMax) pivotV -= vMax;
+
+    const display = document.getElementById("pivotDisplay");
+    if (display) {
+        display.innerText = `${pivotU.toFixed(2)}, ${pivotV.toFixed(2)}`;
+    }
+}
 
 function draw() {
     const resized = resizeCanvasToDisplaySize(canvasGlobal);
@@ -217,21 +222,53 @@ function draw() {
     gl.clearColor(0.02, 0.02, 0.02, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-
     let t = performance.now() * 0.001;
     let lightRadius = 10;
     lightPos[0] = lightRadius * Math.cos(t);
     lightPos[1] = 5;
     lightPos[2] = lightRadius * Math.sin(t);
+    
     const lightModeValue = document.querySelector('input[name="lightMode"]:checked').value;
-    const renderModeValue = document.querySelector('input[name="renderMode"]:checked').value;
     const isLightStatic = (lightModeValue === "static");
+
+    let a = parseFloat(document.getElementById("paramA").value);
+    let b = parseFloat(document.getElementById("paramB").value);
+    let c = parseFloat(document.getElementById("paramC").value);
+    let d = parseFloat(document.getElementById("paramD").value);
+
+    let angleElem = document.getElementById("geoAngle");
+    if(angleElem) geometryRotationAngle = parseFloat(angleElem.value) * Math.PI / 180;
+
+    let pivotModeInput = document.querySelector('input[name="pivotMode"]:checked');
+    let pivotMode = pivotModeInput ? pivotModeInput.value : "surface";
+    
+    let px, py, pz;
+
+    if (pivotMode === "surface") {
+        let pivotData = computeSurfacePoint(a, b, c, d, pivotU, pivotV);
+        px = pivotData.position[0];
+        py = pivotData.position[1];
+        pz = pivotData.position[2];
+    } else {
+        let cxElem = document.getElementById("custX");
+        let cyElem = document.getElementById("custY");
+        let czElem = document.getElementById("custZ");
+        px = cxElem ? parseFloat(cxElem.value) : 0;
+        py = cyElem ? parseFloat(cyElem.value) : 0;
+        pz = czElem ? parseFloat(czElem.value) : 0;
+    }
+
+    let transToOrigin = m4.translation(-px, -py, -pz);
+    let rotation = m4.zRotation(geometryRotationAngle); 
+    let transBack = m4.translation(px, py, pz);
+    let localTransform = m4.multiply(transBack, m4.multiply(rotation, transToOrigin));
 
     if (isLightStatic) {
         viewMatrix = m4.translation(0, 0, zoom);
-        modelMatrix = spaceball.getViewMatrix();
-        normalMatrix4 = modelMatrix;
+        let sbMatrix = spaceball.getViewMatrix();
+        modelMatrix = m4.multiply(sbMatrix, localTransform);
 
+        normalMatrix4 = modelMatrix;
         normalMatrix[0] = normalMatrix4[0]; normalMatrix[1] = normalMatrix4[1]; normalMatrix[2] = normalMatrix4[2];
         normalMatrix[3] = normalMatrix4[4]; normalMatrix[4] = normalMatrix4[5]; normalMatrix[5] = normalMatrix4[6];
         normalMatrix[6] = normalMatrix4[8]; normalMatrix[7] = normalMatrix4[9]; normalMatrix[8] = normalMatrix4[10];
@@ -241,11 +278,12 @@ function draw() {
     } else {
         zoomMatrix = m4.translation(0, 0, zoom);
         viewMatrix = m4.multiply(zoomMatrix, spaceball.getViewMatrix());
-        modelMatrix = m4.identity();
+        modelMatrix = localTransform;
 
-        normalMatrix[0] = 1; normalMatrix[1] = 0; normalMatrix[2] = 0;
-        normalMatrix[3] = 0; normalMatrix[4] = 1; normalMatrix[5] = 0;
-        normalMatrix[6] = 0; normalMatrix[7] = 0; normalMatrix[8] = 1;
+        normalMatrix4 = modelMatrix; 
+        normalMatrix[0] = normalMatrix4[0]; normalMatrix[1] = normalMatrix4[1]; normalMatrix[2] = normalMatrix4[2];
+        normalMatrix[3] = normalMatrix4[4]; normalMatrix[4] = normalMatrix4[5]; normalMatrix[5] = normalMatrix4[6];
+        normalMatrix[6] = normalMatrix4[8]; normalMatrix[7] = normalMatrix4[9]; normalMatrix[8] = normalMatrix4[10];
 
         inverseViewMatrix = m4.inverse(viewMatrix);
         viewPos_WorldSpace[0] = inverseViewMatrix[12];
@@ -255,10 +293,10 @@ function draw() {
 
     shProgram.Use();
 
-
     gl.uniform1i(shProgram.uUseDiffuseMap, renderSettings.useDiffuse);
     gl.uniform1i(shProgram.uUseSpecularMap, renderSettings.useSpecular);
     gl.uniform1i(shProgram.uUseNormalMap, renderSettings.useNormal);
+    gl.uniform1i(shProgram.uEnableLighting, renderSettings.enableLighting);
 
     if (textures.diffuse) {
         gl.activeTexture(gl.TEXTURE0);
@@ -292,17 +330,48 @@ function draw() {
     gl.uniform1i(shProgram.uIsLight, 0);
     surface.Draw(renderSettings.renderMode);
 
+    let pivotMatrix = m4.multiply(modelMatrix, m4.translation(px, py, pz));
+    pivotMatrix = m4.multiply(pivotMatrix, m4.scaling(0.5, 0.5, 0.5));
     
+    gl.uniformMatrix4fv(shProgram.iModelMatrix, false, pivotMatrix);
+    gl.uniformMatrix3fv(shProgram.iNormalMatrix, false, normalMatrix);
+
+    gl.uniform1i(shProgram.uIsLight, 1); 
+    gl.uniform4f(shProgram.uColor, 1.0, 0.0, 0.0, 1.0); 
+    if (pivotPointModel) pivotPointModel.Draw("triangles");
+
     lightModelMatrix = m4.translation(lightPos[0], lightPos[1], lightPos[2]);
     gl.uniformMatrix4fv(shProgram.iModelMatrix, false, lightModelMatrix);
     gl.uniformMatrix3fv(shProgram.iNormalMatrix, false, lightNormalMatrix);
 
-    gl.uniform1i(shProgram.uIsLight, 1);
+    gl.uniform1i(shProgram.uIsLight, 1); 
+    gl.uniform4f(shProgram.uColor, 1.0, 1.0, 1.0, 1.0); 
     lightSphere.Draw(renderSettings.renderMode);
+
+    const showAxes = document.getElementById("showAxes") ? document.getElementById("showAxes").checked : false;
+    if (showAxes && axisXModel) {
+        let axesMatrix = isLightStatic ? spaceball.getViewMatrix() : m4.identity();
+        gl.uniformMatrix4fv(shProgram.iModelMatrix, false, axesMatrix);
+        
+        gl.uniform1i(shProgram.uIsLight, 1); 
+        gl.uniform1i(shProgram.uUseDiffuseMap, false);
+
+        gl.disable(gl.DEPTH_TEST);
+        
+        gl.uniform4f(shProgram.uColor, 1.0, 0.0, 0.0, 1.0);
+        axisXModel.Draw("lines");
+
+        gl.uniform4f(shProgram.uColor, 0.0, 0.0, 1.0, 1.0);
+        axisYModel.Draw("lines");
+
+        gl.uniform4f(shProgram.uColor, 0.0, 1.0, 0.0, 1.0);
+        axisZModel.Draw("lines");
+
+        gl.enable(gl.DEPTH_TEST);
+    }
 
     requestAnimationFrame(draw);
 }
-
 
 function computeSurfacePoint(a, b, c, d, u, v) {
     function f(v) {
@@ -323,13 +392,11 @@ function computeSurfacePoint(a, b, c, d, u, v) {
         return numerator / denom;
     }
     let dfv = df(v);
-
     let dCommon_du = -0.5*Math.sin(u)*(fv - (d*d - c*c)/fv);
     let dx_du = dCommon_du*Math.cos(v);
     let dy_du = dCommon_du*Math.sin(v);
     let dz_du = 0.5*(fv - (d*d - c*c)/fv)*Math.cos(u);
     let Pu = [dx_du, dy_du, dz_du]; 
-
     let dCommon_dv = 0.5*(dfv*(1+Math.cos(u)) - (d*d - c*c)*dfv*(1 - Math.cos(u))/ (fv*fv));
     let dx_dv = dCommon_dv*Math.cos(v) - Math.sin(v)*(0.5*(fv*(1+Math.cos(u)) + (d*d - c*c)*(1 - Math.cos(u))/fv));
     let dy_dv = dCommon_dv*Math.sin(v) + Math.cos(v)*(0.5*(fv*(1+Math.cos(u)) + (d*d - c*c)*(1 - Math.cos(u))/fv));
@@ -338,47 +405,29 @@ function computeSurfacePoint(a, b, c, d, u, v) {
 
     let N_raw = m4.cross(Pu, Pv);
     let N = m4.normalize(m4.scaleVector(N_raw, -1)); 
-
     let T = m4.normalize(Pu);
-    
     let T_ortho = m4.normalize(m4.subtractVectors(T, m4.scaleVector(N, m4.dot(T, N))));
-
     let B_ortho = m4.normalize(m4.cross(N, T_ortho));
 
-    return {
-        position: position,
-        normal: N,
-        tangent: T_ortho,
-        bitangent: B_ortho
-    };
+    return { position: position, normal: N, tangent: T_ortho, bitangent: B_ortho };
 }
 
 function CreateVirichSurfaceData(a, b, c, d, uSteps, vSteps, uMax, vMax) {
-    let verts = [];
-    let normals = [];
-    let uvs = [];
-    let tangents = [];
-    let bitangents = [];
-
+    let verts = [], normals = [], uvs = [], tangents = [], bitangents = [];
     for (let i = 0; i <= uSteps; i++) {
         let u = uMax * i / uSteps;
         for (let j = 0; j <= vSteps; j++) {
             let v = vMax * j / vSteps;
-
             let data = computeSurfacePoint(a, b, c, d, u, v);
-
             verts.push(...data.position);
             normals.push(...data.normal);
             tangents.push(...data.tangent);
             bitangents.push(...data.bitangent);
-            
             uvs.push(j / vSteps, i / uSteps);
         }
     }
-
     return { verts: verts, normals: normals, uvs: uvs, tangents: tangents, bitangents: bitangents };
 }
-
 
 function initGL() {
     let prog = createProgram(gl, vertexShaderSource, fragmentShaderSource);
@@ -403,6 +452,9 @@ function initGL() {
     shProgram.uSpecularColor = gl.getUniformLocation(prog, "uSpecularColor");
     shProgram.uShininess = gl.getUniformLocation(prog, "uShininess");
     shProgram.uIsLight = gl.getUniformLocation(prog, "uIsLight");
+    
+    shProgram.uEnableLighting = gl.getUniformLocation(prog, "uEnableLighting");
+    shProgram.uColor = gl.getUniformLocation(prog, "uColor");
 
     shProgram.uDiffuseMap = gl.getUniformLocation(prog, "uDiffuseMap");
     shProgram.uSpecularMap = gl.getUniformLocation(prog, "uSpecularMap");
@@ -432,12 +484,31 @@ function initGL() {
     let sphereLineIndices = generateLineIndices(20, 10);
     lightSphere.BufferData(sphereData.verts, sphereData.normals, sphereData.uvs, sphereData.tangents, sphereData.bitangents, sphereIndices, sphereLineIndices);
 
+    pivotPointModel = new Model('PivotPoint');
+    pivotPointModel.BufferData(sphereData.verts, sphereData.normals, sphereData.uvs, sphereData.tangents, sphereData.bitangents, sphereIndices, sphereLineIndices);
+
+    let dims = calculateAxisDimensions(data.verts);
+
+    axisXModel = new Model('AxisX');
+    let dataX = createAxisLine('x', dims.x);
+    axisXModel.BufferData(dataX.verts, dataX.normals, dataX.uvs, dataX.tangents, dataX.bitangents, dataX.indices, dataX.lineIndices);
+    
+    axisYModel = new Model('AxisY');
+    let dataY = createAxisLine('y', dims.y);
+    axisYModel.BufferData(dataY.verts, dataY.normals, dataY.uvs, dataY.tangents, dataY.bitangents, dataY.indices, dataY.lineIndices);
+
+    axisZModel = new Model('AxisZ');
+    let dataZ = createAxisLine('z', dims.z);
+    axisZModel.BufferData(dataZ.verts, dataZ.normals, dataZ.uvs, dataZ.tangents, dataZ.bitangents, dataZ.indices, dataZ.lineIndices);
+
     gl.enable(gl.DEPTH_TEST);
     gl.lineWidth(1.0);
 
     resizeCanvasToDisplaySize(canvasGlobal);
     gl.viewport(0, 0, canvasGlobal.width, canvasGlobal.height);
     projectionMatrix = m4.perspective(Math.PI / 6, canvasGlobal.width / canvasGlobal.height, 0.1, 100);
+
+    window.addEventListener("keydown", handlePivotKeys);
 }
 
 function createProgram(gl, vShader, fShader) {
@@ -472,28 +543,17 @@ function createSphere(radius, lats, longs) {
         let lat = Math.PI * (-0.5 + i / lats);
         let sinLat = Math.sin(lat);
         let cosLat = Math.cos(lat);
-
         for (let j = 0; j <= longs; j++) {
             let lon = 2 * Math.PI * j / longs;
             let sinLon = Math.sin(lon);
             let cosLon = Math.cos(lon);
-
             let x = cosLon * cosLat;
             let y = sinLon * cosLat;
             let z = sinLat;
-            
-            let nx = x;
-            let ny = y;
-            let nz = z;
-            let normal = [nx, ny, nz];
-
-            let tx = -sinLon;
-            let ty = cosLon;
-            let tz = 0;
+            let nx = x, ny = y, nz = z;
+            let tx = -sinLon, ty = cosLon, tz = 0;
             let tangent = m4.normalize([tx, ty, tz]); 
-
-            let bitangent = m4.normalize(m4.cross(tangent, normal)); 
-
+            let bitangent = m4.normalize(m4.cross(tangent, [nx, ny, nz])); 
             vertices.push(x * radius, y * radius, z * radius);
             normals.push(nx, ny, nz);
             uvs.push(j / longs, i / lats);
@@ -506,19 +566,53 @@ function createSphere(radius, lats, longs) {
         for (let j = 0; j < longs; j++) {
             let first = (i * (longs + 1)) + j;
             let second = first + longs + 1;
-
             indices.push(first, second, first + 1);
             indices.push(second, second + 1, first + 1);
         }
     }
+    return { verts: vertices, normals: normals, uvs: uvs, tangents: tangents, bitangents: bitangents, indices: indices };
+}
 
-    return { 
-        verts: vertices, 
-        normals: normals, 
-        uvs: uvs, 
-        tangents: tangents, 
-        bitangents: bitangents, 
-        indices: indices 
+function calculateAxisDimensions(vertices) {
+    let maxX = 0, maxY = 0, maxZ = 0;
+    for (let i = 0; i < vertices.length; i += 3) {
+        let x = Math.abs(vertices[i]);
+        let y = Math.abs(vertices[i+1]);
+        let z = Math.abs(vertices[i+2]);
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+        if (z > maxZ) maxZ = z;
+    }
+    return {
+        x: Math.max(maxX * 1.2, 2.0),
+        y: Math.max(maxY * 1.2, 2.0),
+        z: Math.max(maxZ * 1.2, 2.0)
+    };
+}
+
+function createAxisLine(axis, length) {
+    let xStart = 0, yStart = 0, zStart = 0;
+    let xEnd = 0, yEnd = 0, zEnd = 0;
+
+    if (axis === 'x') { xStart = -length; xEnd = length; }
+    else if (axis === 'y') { yStart = -length; yEnd = length; }
+    else if (axis === 'z') { zStart = -length; zEnd = length; }
+
+    let vertices = [ xStart, yStart, zStart, xEnd, yEnd, zEnd ];
+    
+    let zeros = new Array(vertices.length).fill(0);
+    let uvs = new Array((vertices.length/3)*2).fill(0);
+    let lineIndices = [0, 1];
+    let indices = []; 
+
+    return {
+        verts: vertices,
+        normals: zeros,
+        uvs: uvs,
+        tangents: zeros,
+        bitangents: zeros,
+        indices: indices,
+        lineIndices: lineIndices
     };
 }
 
@@ -526,17 +620,12 @@ function loadTexture(gl, url) {
     return new Promise((resolve, reject) => {
         const texture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, texture);
-
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
-            new Uint8Array([128, 128, 128, 255]));
-
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([128, 128, 128, 255]));
         const image = new Image();
         image.crossOrigin = "anonymous";
-        
         image.onload = function() {
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-            
             if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
                gl.generateMipmap(gl.TEXTURE_2D);
                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
@@ -546,16 +635,13 @@ function loadTexture(gl, url) {
                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
             }
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-            
             console.log(`Texture loaded: ${url}`);
             resolve(texture);
         };
-        
         image.onerror = function() {
             console.error(`Failed to load texture: ${url}`);
             reject(new Error(`Failed to load texture: ${url}`));
         }
-        
         image.src = url;
     });
 }
@@ -577,9 +663,10 @@ async function initApp() {
         console.log("All textures loaded.");
 
         initGL(); 
-
         updateRenderSettings();
-        spaceball = new TrackballRotator(canvasGlobal, draw, 0);
+        
+        spaceball = new TrackballRotator(canvasGlobal, () => {}, 0);
+        
         canvasGlobal.addEventListener("wheel", function(event) {
             event.preventDefault();
             zoom += event.deltaY * 0.01;
@@ -614,10 +701,20 @@ function updateSurface() {
     let lineIndices = generateLineIndices(uSteps, vSteps);
     
     surface.BufferData(data.verts, data.normals, data.uvs, data.tangents, data.bitangents, indices, lineIndices);
+
+    let dims = calculateAxisDimensions(data.verts);
+
+    let dataX = createAxisLine('x', dims.x);
+    let dataY = createAxisLine('y', dims.y);
+    let dataZ = createAxisLine('z', dims.z);
+
+    if (axisXModel) axisXModel.BufferData(dataX.verts, dataX.normals, dataX.uvs, dataX.tangents, dataX.bitangents, dataX.indices, dataX.lineIndices);
+    if (axisYModel) axisYModel.BufferData(dataY.verts, dataY.normals, dataY.uvs, dataY.tangents, dataY.bitangents, dataY.indices, dataY.lineIndices);
+    if (axisZModel) axisZModel.BufferData(dataZ.verts, dataZ.normals, dataZ.uvs, dataZ.tangents, dataZ.bitangents, dataZ.indices, dataZ.lineIndices);
 }
 
 function resetView() {
-    spaceball = new TrackballRotator(canvasGlobal, draw, 0);
+    spaceball = new TrackballRotator(canvasGlobal, () => {}, 0);
 }
 
 function updateRenderSettings() {
@@ -627,4 +724,6 @@ function updateRenderSettings() {
     renderSettings.useSpecular = document.getElementById("useSpecularMap").checked;
     renderSettings.useNormal = document.getElementById("useNormalMap").checked;
     
+    let el = document.getElementById("enableLighting");
+    if(el) renderSettings.enableLighting = el.checked;
 }

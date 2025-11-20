@@ -1,148 +1,195 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8" />
-<title>Virich Cyclic Surface — WebGL</title>
-<style>
-    body {
-        margin: 0;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        background-color: #1e1e1e;
-        color: #eee;
-        height: 100vh;
-        display: flex;
-        flex-direction: row;
-    }
+    <meta charset="utf-8" />
+    <title>Virich Cyclic Surface — WebGL</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: #ccc;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
 
-    #sidebar {
-        width: 280px;
-        background-color: #2c2c2c;
-        padding: 20px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        box-shadow: 3px 0 10px rgba(0,0,0,0.5);
-    }
+        #sidebar {
+            width: 300px;
+            background-color: #252526;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.3);
+            overflow-y: auto;
+            font-size: 13px;
+        }
 
-    #sidebar h2 {
-        font-size: 20px;
-        margin-bottom: 12px;
-        text-align: center;
-    }
+        .section-title {
+            font-weight: bold;
+            color: #fff;
+            border-bottom: 1px solid #444;
+            padding-bottom: 4px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 12px;
+        }
 
-    #sidebar label {
-        display: flex;
-        justify-content: space-between;
-        font-size: 14px;
-        margin-bottom: 6px;
-    }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
 
-    #sidebar input[type="number"], #sidebar input[type="color"] {
-        width: 80px;
-        padding: 2px 4px;
-        border-radius: 4px;
-        border: 1px solid #555;
-        background-color: #3a3a3a;
-        color: #eee;
-    }
+        label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+        }
 
-    #sidebar input[type="radio"] {
-        margin-right: 6px;
-    }
+        input[type="number"], input[type="text"] {
+            background-color: #3c3c3c;
+            border: 1px solid #555;
+            color: #eee;
+            border-radius: 3px;
+            padding: 2px 5px;
+            width: 60px;
+            text-align: right;
+        }
 
-    #sidebar button {
-        padding: 6px 12px;
-        background-color: #ff8800;
-        border: none;
-        border-radius: 4px;
-        color: #fff;
-        font-weight: bold;
-        cursor: pointer;
-        transition: 0.2s;
-    }
+        input[type="range"] {
+            flex: 1;
+            margin-left: 10px;
+        }
 
-    #sidebar button:hover {
-        background-color: #ffaa33;
-    }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 5px;
+        }
 
-    #canvas-container {
-        flex: 1;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background-color: #111;
-    }
+        button {
+            flex: 1;
+            padding: 8px;
+            background-color: #ff8800;
+            border: none;
+            border-radius: 3px;
+            color: white;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
 
-    canvas {
-        width: 100%;
-        height: 100%;
-        border: 2px solid #444;
-        background-color: #111;
-    }
+        button:hover {
+            background-color: #ff880084;
+        }
 
-    .control-group {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        margin-top: 10px;
-    }
-</style>
+        .xyz-group {
+            display: flex;
+            gap: 5px;
+        }
+        .xyz-group label {
+            justify-content: flex-start;
+            gap: 5px;
+        }
+        .xyz-group input {
+            width: 40px;
+        }
+
+        #canvas-container {
+            flex: 1;
+            background-color: #111;
+            position: relative;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        .info-value {
+            color: #ff8800;
+            font-family: monospace;
+        }
+    </style>
 </head>
 <body onload="init()">
 
 <div id="sidebar">
-    <h2>Surface parameters</h2>
-
-    <label>a: <input id="paramA" type="number" value="1.5" step="0.1"></label>
-    <label>b: <input id="paramB" type="number" value="3" step="0.1"></label>
-    <label>c: <input id="paramC" type="number" value="2" step="0.1"></label>
-    <label>d: <input id="paramD" type="number" value="4" step="0.1"></label>
-    <label>uSteps: <input id="paramU" type="number" value="20" step="1" min="4"></label>
-    <label>vSteps: <input id="paramV" type="number" value="20" step="1" min="4"></label>
 
     <div class="control-group">
-        <button onclick="updateSurface()">Update surface</button>
-        <button onclick="resetView()">Reset view</button>
+        <div class="section-title">Surface Parameters</div>
+        <label>a: <input id="paramA" type="number" value="1.5" step="0.1"></label>
+        <label>b: <input id="paramB" type="number" value="3" step="0.1"></label>
+        <label>c: <input id="paramC" type="number" value="2" step="0.1"></label>
+        <label>d: <input id="paramD" type="number" value="4" step="0.1"></label>
+        <label>U Steps: <input id="paramU" type="number" value="60" step="1" min="4"></label>
+        <label>V Steps: <input id="paramV" type="number" value="60" step="1" min="4"></label>
+        
+        <div class="btn-group">
+            <button onclick="updateSurface()">Build</button>
+            <button onclick="resetView()">Reset View</button>
+        </div>
     </div>
 
     <div class="control-group">
-        <span>Render mode:</span>
-        <label><input type="radio" name="renderMode" value="lines" checked onchange="updateRenderSettings()"> Lines</label>
-        <label><input type="radio" name="renderMode" value="triangles" onchange="updateRenderSettings()"> Triangles</label>
+        <div class="section-title">Rendering</div>
+        
+        <label>
+            <span>Mode:</span>
+            <div>
+                <label style="display:inline;"><input type="radio" name="renderMode" value="lines" onchange="updateRenderSettings()"> Lines</label>
+                <label style="display:inline; margin-left:5px;"><input type="radio" name="renderMode" value="triangles" checked onchange="updateRenderSettings()"> Fill</label>
+            </div>
+        </label>
+
+        <label><input type="checkbox" id="showAxes" checked> Show Axes</label>
     </div>
 
     <div class="control-group">
-        <span>Light mode:</span>
-        <label>
-            <input type="radio" name="lightMode" value="static" checked onchange="updateRenderSettings()">
-            Static (object rotates)
-        </label>
-        <label>
-            <input type="radio" name="lightMode" value="dynamic" onchange="updateRenderSettings()">
-            Dynamic (camera rotates)
-        </label>
+        <div class="section-title">Textures</div>
+        <label><input type="checkbox" id="useDiffuseMap" checked onchange="updateRenderSettings()"> Diffuse</label>
+        <label><input type="checkbox" id="useSpecularMap" checked onchange="updateRenderSettings()"> Specular</label>
+        <label><input type="checkbox" id="useNormalMap" checked onchange="updateRenderSettings()"> Normal</label>
     </div>
 
     <div class="control-group">
-         <span>Texture maps:</span>
-        <label>
-            <input type="checkbox" id="useDiffuseMap" checked onchange="updateRenderSettings()">
-            Use Diffuse Map (Color)
-        </label>
-        <label>
-            <input type="checkbox" id="useSpecularMap" checked onchange="updateRenderSettings()">
-            Use Specular Map
-        </label>
-        <label>
-            <input type="checkbox" id="useNormalMap" checked onchange="updateRenderSettings()">
-            Use Normal Map
-        </label>
+        <div class="section-title">Lighting</div>
+        <label><input type="checkbox" id="enableLighting" checked onchange="updateRenderSettings()"> Enable Light</label>
+        
+        <div style="margin-top:5px;">
+            <label><input type="radio" name="lightMode" value="static" checked onchange="updateRenderSettings()"> Static (World)</label>
+            <label><input type="radio" name="lightMode" value="dynamic" onchange="updateRenderSettings()"> Dynamic (Camera)</label>
+        </div>
+    </div>
+
+    <div class="control-group">
+        <div class="section-title">Transformation</div>
+        
+        <label>Rotation: <input id="geoAngle" type="range" min="0" max="360" value="0" step="1"></label>
+        
+        <div style="margin: 8px 0 4px 0; border-top: 1px solid #333; padding-top:5px;">
+            <strong>Pivot Source:</strong>
+        </div>
+        
+        <label><input type="radio" name="pivotMode" value="surface" checked> Surface (U,V)</label>
+        <div style="padding-left: 20px; font-size: 11px; margin-bottom: 5px;">
+            Current: <span id="pivotDisplay" class="info-value">0.00, 0.00</span>
+            <br><span style="color:#666">(Use WASD keys)</span>
+        </div>
+
+        <label><input type="radio" name="pivotMode" value="custom"> Custom (X,Y,Z)</label>
+        <div class="xyz-group" style="padding-left: 20px;">
+            <label>X <input id="custX" type="number" value="0" step="0.5"></label>
+            <label>Y <input id="custY" type="number" value="0" step="0.5"></label>
+            <label>Z <input id="custZ" type="number" value="0" step="0.5"></label>
+        </div>
     </div>
 
 </div>
-</div>
-
-
 
 <div id="canvas-container">
     <canvas id="webglcanvas"></canvas>
